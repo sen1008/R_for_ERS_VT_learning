@@ -1,0 +1,24 @@
+library(tfestimators) #載入預估器library
+id_train <- "1uitJfATuq02qV67YTUMpmOJ8yTBvEtqR"  #Google 雲端Train檔案 ID
+id_test <- "1jO601pqUlIB0EHMWFzVcpOh_dM5wOojd" #Google 雲端Test檔案 ID
+id_predict <- "1WXuDSINvajrXTIhb3779JyeqLudN1HHY" #Google 雲端Predict檔案 ID> 
+train_data2 <- read.csv(sprintf("https://drive.google.com/uc?export=download&id=%s", id_train)) #蓋出train data.frame資料(normalize)
+test_data2 <- read.csv(sprintf("https://drive.google.com/uc?export=download&id=%s", id_test))  #蓋出test data.frame資料(normalize)
+predict_data2 <- read.csv(sprintf("https://drive.google.com/uc?export=download&id=%s", id_predict)) #蓋出predict data.frame資料(normalize)
+ERS_input_fn<-function(dataset) {input_fn(dataset, features = -ERSVT, response = ERSVT)} #定義特徵參數與反應參數
+model_fn <- function(features, labels, mode, params, config) { #定義估算器model
+first_hidden_layer <- tf$layers$dense(features, 10L, activation = tf$nn$relu) #第一層，10unit，啟動器: tf nn relu
+second_hidden_layer <- tf$layers$dense(first_hidden_layer, 10L, activation = tf$nn$relu) #第二層，10unit，啟動器: tf nn relu
+output_layer <- tf$layers$dense(second_hidden_layer, 1L) #output 1 tensor value
+predictions <- tf$reshape(output_layer, list(-1L)) #預測值tensor轉換成數值
+if (mode == "infer") return(estimator_spec(mode = mode, predictions =  list(ERS = predictions)))   # if mode = inference，列印出預測值
+loss <- tf$losses$mean_squared_error(labels, predictions) # 評估MSE(殘差平均)
+eval_metric_ops <- list(rmse = tf$metrics$root_mean_squared_error(tf$cast(labels, tf$float64), predictions)) #格式轉換
+optimizer <- tf$train$GradientDescentOptimizer(learning_rate = params$learning_rate) #優化器，迴圈訓練模型到loss最小
+train_op <- optimizer$minimize(loss = loss, global_step = tf$train$get_global_step()) #定義優化器的訓練參數
+return(estimator_spec(mode = mode,loss = loss,train_op = train_op,eval_metric_ops = eval_metric_ops))} #定義優化器在train與evaluate mode
+model <- estimator(model_fn, params = list(learning_rate = 0.001)) #定義訓練速度
+train(model, input_fn = ERS_input_fn(train_data2)) #訓練
+evaluate(model, input_fn = ERS_input_fn(test_data2)) #評估
+predict_value <- predict(model, input_fn = ERS_input_fn(predict_data2))#預測
+lapply(predict_value, function(x) write.table( data.frame(x), 'test.csv'  , append= T, sep=',' )) #輸出預測值
