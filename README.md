@@ -1,2 +1,2 @@
 # R_for_ERS_VT_learning
-AAG051 練習用
+學習Tensorflow estimator使用，使用兩層NN，10單元去預測ERS Vt
